@@ -9,19 +9,19 @@ import csv
 class DataPreprocessor:
     def __init__(self, filepath):
         """
-        初始化資料預處理器
+        初始化資料預處理器 initialize Data Preprocessor
         :param filepath: 原始數據文件路徑
         """
         self.filepath = filepath
         self.output_dir = 'processed_ids'
-        self.date_formats = [  # 添加日期格式列表
+        self.date_formats = [  # 添加日期格式列表 add date format list
             '%Y-%m-%d', '%Y/%m/%d', '%d-%m-%Y', '%d/%m/%Y',
             '%m-%d-%Y', '%m/%d/%Y', '%Y%m%d', '%d.%m.%Y'
         ]
         os.makedirs(self.output_dir, exist_ok=True)
 
     def _read_batch_data(self, batch_ids, start_date, end_date):
-        """高效讀取批次數據並根據日期範圍過濾"""
+        """高效讀取批次數據並根據日期範圍過濾 read data in batches and filter data according to the date range"""
         with open(self.filepath, 'r', encoding='utf-8') as f:
             reader = csv.reader(f)
             headers = next(reader)
@@ -32,25 +32,19 @@ class DataPreprocessor:
             start_dt = pd.to_datetime(start_date)
             end_dt = pd.to_datetime(end_date)
             
-            # 預轉換為集合提升查詢速度
             target_ids = set(map(str, batch_ids))
-            
-            # 緩衝區收集數據行
-            rows = [headers]  # 保留標題列
+                     
+            rows = [headers]  
             rows.extend(row for row in reader if row[fid_index] in target_ids and start_dt <= pd.to_datetime(row[date_index]) <= end_dt)
-#             for row in reader:
-#                 if row[fid_index] in target_ids:
-#                     dt = pd.to_datetime(row[date_index])
-#                     if (dt >= start_dt) & (dt <= end_dt):
-#                         rows.append(row)
+
         
-        # 轉換為DataFrame並處理數據類型
+        # 轉換為DataFrame並處理數據類型 Transform to DataFrame 
         if len(rows) > 1:
             df = pd.DataFrame(rows[1:], columns=headers)
             # 將日期欄轉換為 datetime 型別
             df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         
-#             # 篩選日期範圍
+#             # 篩選日期範圍 Filter date range
 #             start_dt = pd.to_datetime(start_date)
 #             end_dt = pd.to_datetime(end_date)
 #             df = df[(df['Date'] >= start_dt) & (df['Date'] <= end_dt)] 
@@ -63,16 +57,16 @@ class DataPreprocessor:
         return pd.DataFrame()
 
     def process_data(self, total_ids, batch_size=5, start_date="1000-01-01" , end_date = "9999-01-01"):
-        """批次處理主程式"""
+        """批次處理主程式 main program run in batches"""
         
         all_ids = []
         for f in os.listdir(self.output_dir):
             if f:
                 all_ids.append(int(f.split('_')[2].split('.')[0]))
             else:
-                print("processed_ids中不存在文件")
+                print("processed_ids中不存在文件(processed_ids does not exist file")
                 
-        # 自動檢測ID範圍
+        # 自動檢測ID範圍 automatically detect IDs range
         if len(all_ids) > 0: 
             start_ids = max(all_ids)+1
             unique_ids = range(start_ids,total_ids)
@@ -93,10 +87,10 @@ class DataPreprocessor:
                 except Exception as e:
                     print(f"處理批次 {batch_ids} 失敗: {str(e)}")
                 finally:
-                    del batch_df  # 主動釋放內存
+                    del batch_df  # 主動釋放內存 
 
     def _full_preprocess(self, df):
-        """完整預處理流程"""
+        """完整預處理流程 Full Preprocess pipeline"""
         
         self.df = df.copy()
         self._convert_date()
@@ -109,18 +103,18 @@ class DataPreprocessor:
         return self.df
 
     def _save_chunk(self, chunk, filename):
-        """保存批次處理結果"""
+        """保存批次處理結果 Save the result of program in batches"""
         chunk.to_csv(os.path.join(self.output_dir, filename), 
                     index=False, encoding='utf-8')
 
 
     def merge_and_export(self, output_filename):
-        """合併並導出最終結果"""
+        """合併並輸出最終結果 Merge and export the result"""
         all_files = [f for f in os.listdir(self.output_dir) if f.endswith('.csv')]
         if not all_files:
-            raise FileNotFoundError("未找到任何批次處理結果文件")
+            raise FileNotFoundError("未找到任何批次處理結果文件(Does not find any file of result in batches")
                
-        # 逐步合併確保內存效率
+        # 逐步合併確保記憶體效率 merge data step by step to ensure the memory efficency
         merged = pd.DataFrame()
         for f in tqdm(all_files, desc="Merging files"):
             file_path = os.path.join(self.output_dir, f)
@@ -128,22 +122,21 @@ class DataPreprocessor:
 
             merged = pd.concat([merged, chunk], ignore_index=True)
         
-        # 整合最終結果
+        # 整合最終結果 combine the final result
         
         calculator = BioClimateCalculator(merged)
         result = calculator.calculate_all()
         final_result = result.groupby(['ID','Year'], as_index=False).mean()
         final_result.to_csv(output_filename, index=False)
         
-        # 清理臨時文件
+        # 清理臨時文件 delete temporary files
         for f in all_files:
             os.remove(os.path.join(self.output_dir, f))
         os.rmdir(self.output_dir)
         print(f"最終結果已保存至 {output_filename}")
-
-    # 以下預處理方法保持不變但調整為實例方法
+    
     def _convert_date(self):
-        """日期格式轉換（優化錯誤處理）"""
+        """日期格式轉換 datetime format convert"""
         try:
             self.df['Date'] = pd.to_datetime(
                 self.df['Date'],
@@ -152,40 +145,40 @@ class DataPreprocessor:
                 errors='coerce'
             )
         except Exception as e:
-            print(f"日期轉換異常: {str(e)}")
+            print(f"日期轉換異常(datetime convert error: {str(e)}")
             self.df['Date'] = pd.to_datetime(
                 self.df['Date'],
                 errors='coerce'
             )
 
     def _validate_dates(self):
-        """驗證日期（增加百分比統計）"""
+        """驗證日期 validate datetime format"""
         na_count = self.df['Date'].isna().sum()
         if na_count > 0:
             total = len(self.df)
-            print(f"警告: 發現 {na_count} 個無效日期 ({na_count/total:.2%})")
+            print(f"警告: 發現 {na_count} 個無效日期(Warnings: Find {na_count} non valid datetime ({na_count/total:.2%})")
 
     def _add_year_month(self):
-        """新增年、月欄位到指定位置"""
+        """新增年、月欄位 add Year & Month column"""
         self.df.insert(1, 'Year', '')
         self.df.insert(2, 'Month', '')
         self.df['Month'] = self.df['Date'].map(lambda x: x.month)
         self.df['Year'] = self.df['Date'].map(lambda x: x.year)
         
     def _rename_columns(self):
-        """標準化欄位名稱"""
+        """標準化欄位名稱 Change column names"""
         column_mapping = {
             'temperature_2m_MEAN': 'Temp',
             'temperature_2m_max_MEAN': 'Tmax',
             'temperature_2m_min_MEAN': 'Tmin',
             'total_precipitation_sum_MEAN': 'Prec',
-#             'InPoly_FID': 'ID'  #自行更換FID名稱
-            'TARGET_FID': 'ID' #自行更換FID名稱
+#             'InPoly_FID': 'ID'  #自行更換FID名稱 according to your data 'ID' name
+            'TARGET_FID': 'ID' #自行更換FID名稱 according to your data 'ID' name 
         }
         self.df.rename(columns=column_mapping, inplace=True)
     
     def _convert_temp_KtoC(self):
-        """K氏溫標轉換成攝氏溫標"""
+        """K氏溫標轉換成攝氏溫標 K to C"""
         if self.df['Temp'].max() > 100:
             self.df['Temp'] = self.df['Temp'] -273.15
             print('已將Temp欄位轉換為攝氏溫標')
@@ -509,14 +502,3 @@ class BioClimateCalculator:
             result_name='Bio19',
             value_type='prec'
         )
-
-
-# # 使用範例
-# if __name__ == "__main__":
-#     preprocessor = DataPreprocessor("input_data.csv")
-    
-#     # 假設已知最大ID為10204
-#     preprocessor.process_data(total_ids=10204, batch_size=5)
-    
-#     # 合併並導出結果
-#     preprocessor.merge_and_export("final_results.csv")
